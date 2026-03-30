@@ -1,0 +1,26 @@
+﻿<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SMC Street Light Portal</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header class="gov-header">
+        <div class="gov-brand">
+            <img class="smc-logo" src="~/images/smc-emblem.svg?v=2" alt="SMC Logo" />
+            <div>
+                <h1>सोलापूर महानगरपालिका</h1>
+                <p>SMC स्ट्रीट लाईट स्थापना विनंती प्रणाली</p>
+            </div>
+        </div>
+        <nav>
+            <a asp-controller="Portal" asp-action="Index">SMC स्ट्रीट लाईट स्थापना विनंती प्रणाली</a>
+        </nav>
+    </header>
+    <main class="container">
+        @RenderBody()
+    </main>
+</body>
+</html>

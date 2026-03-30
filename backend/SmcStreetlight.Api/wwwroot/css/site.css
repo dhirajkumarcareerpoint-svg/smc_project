@@ -1,0 +1,151 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap');
+
+:root {
+  --gov-navy: #b01767;
+  --gov-navy-2: #d63384;
+  --gov-accent: #ff6fae;
+  --gov-bg: #fff1f7;
+  --gov-card: #ffffff;
+  --gov-border: #efb5cf;
+  --gov-text: #4d1f35;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #ffe6f1 0%, #fff8fc 100%);
+  color: var(--gov-text);
+  font-family: "Mangal", "Noto Sans Devanagari", "Nirmala UI", "Segoe UI", sans-serif;
+}
+
+.gov-header {
+  background: linear-gradient(90deg, var(--gov-navy) 0%, var(--gov-navy-2) 100%);
+  color: #fff;
+  padding: 14px 20px;
+  border-bottom: 4px solid var(--gov-accent);
+}
+
+.gov-brand {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.gov-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.gov-header p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  opacity: 0.95;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+nav a {
+  color: #dff4ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 18px auto;
+  padding: 0 12px;
+}
+
+.card {
+  background: var(--gov-card);
+  border: 1px solid var(--gov-border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 8px 16px rgba(14, 56, 86, 0.08);
+}
+
+.grid-form {
+  display: grid;
+  gap: 10px;
+}
+.tab-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.tab-btn {
+  background: var(--gov-navy-2);
+}
+.tab-pane.hidden {
+  display: none;
+}
+
+input, textarea, select, button {
+  width: 100%;
+  border: 1px solid #e59bbf;
+  border-radius: 6px;
+  padding: 10px;
+  font-family: inherit;
+}
+
+button {
+  border: none;
+  background: var(--gov-navy);
+  color: white;
+  cursor: pointer;
+}
+
+.request-card {
+  border: 1px solid #efb5cf;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.action-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-bottom: 12px;
+}
+.upload-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-top: 10px;
+}
+.dash-topbar {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+.logout-corner {
+  width: auto !important;
+  min-width: 120px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.info { color: #8a2f57; font-weight: 600; }
+.warn { color: #b73423; font-weight: 600; }
+
+.smc-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #ffffff;
+  padding: 2px;
+  border: 2px solid #ffffff;
+}

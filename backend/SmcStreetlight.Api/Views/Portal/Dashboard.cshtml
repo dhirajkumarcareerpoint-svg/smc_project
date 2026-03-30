@@ -1,0 +1,67 @@
+<section class="card">
+    <h2>अधिकारी डॅशबोर्ड / Officer Dashboard</h2>
+    <p class="info">Role: <span id="roleLabel"></span></p>
+    <button id="loadBtn">Load Requests</button>
+    <div id="requests"></div>
+</section>
+
+<script>
+const token = localStorage.getItem('token');
+const role = localStorage.getItem('role') || 'Unknown';
+document.getElementById('roleLabel').textContent = role;
+
+const roleStatuses = {
+  JE: ['Pending JE Verification', 'Site Verified (Feasible)', 'Site Verified (Not Feasible)', 'Estimate Uploaded by JE', 'Re-Visit Required'],
+  AE: ['Approved by AE', 'Re-Visit Required'],
+  DeputyEngineer: ['Recommended by Deputy Engineer', 'Rejected'],
+  ExecutiveEngineer: ['Approved (Sanctioned)', 'Rejected', 'HOLD', 'Send Back', 'Completed'],
+  Admin: ['Submitted', 'Pending JE Verification', 'Site Verified (Feasible)', 'Site Verified (Not Feasible)', 'Estimate Uploaded by JE', 'Approved by AE', 'Re-Visit Required', 'Recommended by Deputy Engineer', 'Approved (Sanctioned)', 'Rejected', 'HOLD', 'Send Back', 'Completed']
+};
+
+function authHeaders() {
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+function optionsMarkup() {
+  return (roleStatuses[role] || []).map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+async function loadRequests() {
+  const res = await fetch('/api/internal/requests', { headers: authHeaders() });
+  if (!res.ok) {
+    document.getElementById('requests').innerHTML = '<p class="warn">Login required or token expired.</p>';
+    return;
+  }
+
+  const items = await res.json();
+  const html = items.map(x => `
+    <div class="request-card">
+      <p><strong>${x.applicationNumber}</strong> | ${x.currentStatus}</p>
+      <p>${x.citizenName} | Ward ${x.ward}</p>
+      <p>Estimate: ${x.estimatedAmount ?? 'Not set'}</p>
+      <input id="remarks-${x.id}" placeholder="Remarks" />
+      <select id="status-${x.id}">
+        <option value="">Select status</option>
+        ${optionsMarkup()}
+      </select>
+      <button onclick="updateStatus(${x.id})">Update Status</button>
+    </div>
+  `).join('');
+  document.getElementById('requests').innerHTML = html;
+}
+
+async function updateStatus(id) {
+  const status = document.getElementById(`status-${id}`).value;
+  const remarks = document.getElementById(`remarks-${id}`).value;
+  if (!status) return;
+  await fetch(`/api/internal/requests/${id}/status`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ status, remarks })
+  });
+  await loadRequests();
+}
+
+window.updateStatus = updateStatus;
+document.getElementById('loadBtn').addEventListener('click', loadRequests);
+</script>

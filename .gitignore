@@ -1,0 +1,44 @@
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+*.out
+*.err
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+
+# .NET build output
+**/bin/
+**/obj/
+TestResults/
+
+# Local runtime files
+backend/SmcStreetlight.Api/Uploads/
+backend/*.log
+frontend/*.log
+frontend-start*.log
+
+# Environment and secrets
+.env
+.env.*
+appsettings.Development.json
+secrets.json
+
+# Package manager caches
+package-lock.json.*
+pnpm-debug.log*

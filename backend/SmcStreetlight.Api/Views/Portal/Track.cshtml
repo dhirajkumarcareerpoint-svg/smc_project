@@ -1,0 +1,22 @@
+<section class="card">
+    <h2>अर्ज स्थिती तपासा / Track Application Status</h2>
+    <div class="grid-form">
+        <input id="appNo" placeholder="Application Number" />
+        <button id="trackBtn">Track</button>
+    </div>
+    <p id="statusOut" class="info"></p>
+</section>
+
+<script>
+document.getElementById('trackBtn').addEventListener('click', async () => {
+  const appNo = document.getElementById('appNo').value;
+  const out = document.getElementById('statusOut');
+  const res = await fetch(`/api/citizen/requests/${appNo}/status`);
+  if (!res.ok) {
+    out.textContent = 'Application not found.';
+    return;
+  }
+  const data = await res.json();
+  out.textContent = `Current Status: ${data.currentStatus}`;
+});
+</script>

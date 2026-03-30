@@ -1,0 +1,43 @@
+<section class="card">
+    <h2>अंतर्गत लॉगिन (OTP) / Internal OTP Login</h2>
+    <div class="grid-form">
+        <input id="mobile" placeholder="Registered Mobile" />
+        <button id="requestOtpBtn">Request OTP</button>
+        <input id="otp" placeholder="OTP" />
+        <button id="verifyOtpBtn">Verify OTP</button>
+    </div>
+    <p id="otpInfo" class="info"></p>
+</section>
+
+<script>
+let currentMobile = '';
+document.getElementById('requestOtpBtn').addEventListener('click', async () => {
+  currentMobile = document.getElementById('mobile').value;
+  const res = await fetch('/api/auth/request-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile: currentMobile })
+  });
+  const data = await res.json();
+  document.getElementById('otpInfo').textContent = res.ok
+    ? `Demo OTP: ${data.otpForDemo}`
+    : 'OTP request failed.';
+});
+
+document.getElementById('verifyOtpBtn').addEventListener('click', async () => {
+  const otp = document.getElementById('otp').value;
+  const res = await fetch('/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile: currentMobile, otp })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    document.getElementById('otpInfo').textContent = 'OTP verification failed.';
+    return;
+  }
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('role', data.role);
+  location.href = '/Portal/Dashboard';
+});
+</script>

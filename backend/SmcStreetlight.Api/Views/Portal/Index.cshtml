@@ -1,0 +1,533 @@
+﻿<section class="card">
+    <h2>SMC स्ट्रीट लाईट स्थापना विनंती प्रणाली</h2>
+    <div class="tab-row">
+        <button class="tab-btn" data-tab="citizen">Street Light Demand Application</button>
+        <button class="tab-btn" data-tab="track">स्थिती तपासा</button>
+        <button class="tab-btn" data-tab="login">अंतर्गत लॉगिन</button>
+        <button class="tab-btn" data-tab="dashboard">डॅशबोर्ड</button>
+    </div>
+</section>
+
+<section id="tab-citizen" class="card tab-pane">
+    <div class="tab-row" style="margin-top:10px;">
+      <button type="button" class="tab-btn applicant-btn" data-applicant="MLA">MLA (Aamdar)</button>
+      <button type="button" class="tab-btn applicant-btn" data-applicant="Corporator">Corporator</button>
+      <button type="button" class="tab-btn applicant-btn" data-applicant="Citizen">Citizen</button>
+    </div>
+
+    <form id="citizenForm" class="grid-form" style="margin-top:12px;">
+        <input id="applicant_name" name="applicant_name" placeholder="Name" required />
+        <input id="mobile_number" name="mobile_number" placeholder="Mobile Number" required />
+        <input id="ward_number" name="ward_number" placeholder="Ward Number" />
+        <div id="dynamicFields"></div>
+        <input id="number_of_lights_requested" name="number_of_lights_requested" type="number" min="1" placeholder="Number of Street Lights Requested" required />
+        <textarea id="full_address" name="full_address" placeholder="Full Address" required></textarea>
+        <textarea id="location_details" name="location_details" placeholder="Location Details / Landmark" required></textarea>
+        <textarea id="description_of_request" name="description_of_request" placeholder="Description of Request" required></textarea>
+        <button type="submit">Submit Application</button>
+    </form>
+    <p id="ack" class="info"></p>
+    <div id="dbInsertOut"></div>
+</section>
+
+<section id="tab-track" class="card tab-pane hidden">
+    <h2>अर्ज स्थिती तपासा</h2>
+    <div class="grid-form">
+        <input id="appNo" placeholder="अर्ज क्रमांक" />
+        <button id="trackBtn">तपासा</button>
+    </div>
+    <p id="statusOut" class="info"></p>
+    <div id="historyOut"></div>
+</section>
+
+<section id="tab-login" class="card tab-pane hidden">
+    <h2>अंतर्गत लॉगिन (ID / Password)</h2>
+    <div class="grid-form">
+        <input id="loginId" placeholder="Login ID (je / ae / ee किंवा मोबाईल)" />
+        <input id="password" type="password" placeholder="पासवर्ड" />
+        <button id="loginBtn">लॉगिन करा</button>
+    </div>
+    <p id="loginInfo" class="info"></p>
+</section>
+
+<section id="tab-dashboard" class="card tab-pane hidden">
+    <h2>अधिकारी डॅशबोर्ड</h2>
+    <div class="dash-topbar">
+      <p class="info">भूमिका: <span id="roleLabel"></span></p>
+      <button id="logoutBtn" class="logout-corner">Logout</button>
+    </div>
+    <div class="grid-form">
+      <input id="engineerAppNo" placeholder="Application Number टाका" />
+      <button id="findByIdBtn">अर्ज शोधा</button>
+    </div>
+    <div id="requests"></div>
+
+    <hr />
+    <h3>Applicant Type नुसार अर्ज</h3>
+    <div class="summary-grid">
+      <div class="request-card"><strong>MLA Applications:</strong> <span id="countMla">0</span></div>
+      <div class="request-card"><strong>Corporator Applications:</strong> <span id="countCorporator">0</span></div>
+      <div class="request-card"><strong>Citizen Applications:</strong> <span id="countCitizen">0</span></div>
+    </div>
+    <div class="tab-row">
+      <button type="button" class="tab-btn demand-filter-btn" data-demand-type="MLA">MLA Applications</button>
+      <button type="button" class="tab-btn demand-filter-btn" data-demand-type="Corporator">Corporator Applications</button>
+      <button type="button" class="tab-btn demand-filter-btn" data-demand-type="Citizen">Citizen Applications</button>
+    </div>
+    <div id="demandList"></div>
+</section>
+
+<script>
+const panes = ['citizen', 'track', 'login', 'dashboard'];
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    if (!tab) return;
+    if (tab === 'dashboard' && !localStorage.getItem('token')) {
+      panes.forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
+      document.getElementById('tab-login').classList.remove('hidden');
+      document.getElementById('loginInfo').textContent = 'डॅशबोर्ड वापरण्यासाठी आधी लॉगिन करा.';
+      return;
+    }
+    panes.forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    if (tab === 'dashboard') loadDemandDashboard();
+  });
+});
+
+const citizenForm = document.getElementById('citizenForm');
+const ack = document.getElementById('ack');
+const dbInsertOut = document.getElementById('dbInsertOut');
+const dynamicFields = document.getElementById('dynamicFields');
+let selectedApplicantType = 'Citizen';
+
+function renderApplicantFields() {
+  const buttons = document.querySelectorAll('.applicant-btn');
+  buttons.forEach(b => b.style.outline = b.dataset.applicant === selectedApplicantType ? '3px solid #0f8e8e' : 'none');
+
+  const nameInput = document.getElementById('applicant_name');
+  const wardInput = document.getElementById('ward_number');
+  nameInput.placeholder = selectedApplicantType === 'Citizen'
+    ? 'Name'
+    : selectedApplicantType === 'Corporator'
+      ? 'Corporator Name'
+      : 'MLA Name';
+  wardInput.required = selectedApplicantType !== 'Citizen';
+
+  if (selectedApplicantType === 'Citizen') {
+    dynamicFields.innerHTML = '';
+    return;
+  }
+
+  const isMla = selectedApplicantType === 'MLA';
+  dynamicFields.innerHTML = `
+    <input name="letter_reference_number" placeholder="Letter Reference Number" required />
+    <input name="letter_date" type="date" placeholder="Letter Date" required />
+    ${isMla ? '<input name="assembly_constituency" placeholder="Assembly Constituency" required />' : ''}
+    <label>Upload Letter (PDF)</label>
+    <input name="letter_file" type="file" accept=\".pdf\" required />
+  `;
+}
+
+document.querySelectorAll('.applicant-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedApplicantType = btn.dataset.applicant;
+    renderApplicantFields();
+  });
+});
+
+renderApplicantFields();
+citizenForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(citizenForm);
+  fd.append('applicant_type', selectedApplicantType);
+  const res = await fetch('/api/demand-applications', {
+    method: 'POST',
+    body: fd
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    ack.textContent = data?.message || 'Application submission failed.';
+    dbInsertOut.innerHTML = '';
+    return;
+  }
+  citizenForm.querySelectorAll('input, textarea, button').forEach(el => el.disabled = true);
+  ack.textContent = `Application Number: ${data.applicationNumber}`;
+  dbInsertOut.innerHTML = `
+    <div class="request-card">
+      <p><strong>Application Submitted</strong></p>
+      <p>Application Number: ${data.applicationNumber}</p>
+      <p>Applicant Type: ${data.applicantType}</p>
+      <p>Status: ${data.currentStatus}</p>
+      <p>Submitted At: ${new Date(data.createdAtUtc).toLocaleString()}</p>
+    </div>
+  `;
+});
+
+document.getElementById('trackBtn').addEventListener('click', async () => {
+  const appNo = (document.getElementById('appNo').value || '').trim().toUpperCase();
+  const out = document.getElementById('statusOut');
+  const historyOut = document.getElementById('historyOut');
+  if (!appNo) {
+    out.textContent = 'कृपया अर्ज क्रमांक भरा.';
+    historyOut.innerHTML = '';
+    return;
+  }
+  // First try new Demand Application status API.
+  let res = await fetch(`/api/demand-applications/${appNo}/status`);
+  if (res.ok) {
+    const data = await res.json();
+    out.textContent = `सध्याची स्थिती: ${data.currentStatus}`;
+    historyOut.innerHTML = `
+      <div class="request-card">
+        <p><strong>Application Number:</strong> ${data.applicationNumber}</p>
+        <p><strong>Applicant Type:</strong> ${data.applicantType}</p>
+        <p><strong>Submitted At:</strong> ${new Date(data.createdAtUtc).toLocaleString()}</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Fallback for older Street Light request application numbers.
+  res = await fetch(`/api/citizen/requests/${appNo}/status`);
+  if (!res.ok) {
+    out.textContent = 'अर्ज सापडला नाही.';
+    historyOut.innerHTML = '';
+    return;
+  }
+
+  const legacy = await res.json();
+  out.textContent = `सध्याची स्थिती: ${legacy.currentStatus}`;
+  historyOut.innerHTML = `
+    <div class="request-card">
+      <p><strong>Application Number:</strong> ${legacy.applicationNumber}</p>
+      <p><strong>Citizen:</strong> ${legacy.citizenName ?? '-'}</p>
+      <p><strong>Submitted At:</strong> ${new Date(legacy.createdAtUtc).toLocaleString()}</p>
+    </div>
+  `;
+});
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const loginId = (document.getElementById('loginId').value || '').trim();
+  const password = document.getElementById('password').value || '';
+  const info = document.getElementById('loginInfo');
+  if (!loginId || !password) {
+    info.textContent = 'Login ID आणि पासवर्ड आवश्यक आहेत.';
+    return;
+  }
+
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ loginId, password })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    info.textContent = 'लॉगिन अयशस्वी.';
+    return;
+  }
+
+  info.textContent = 'लॉगिन यशस्वी.';
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('role', data.role);
+  localStorage.setItem('name', data.name || '');
+  document.getElementById('roleLabel').textContent = data.role;
+  panes.forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
+  document.getElementById('tab-dashboard').classList.remove('hidden');
+  await loadDemandDashboard();
+});
+
+function authHeaders() {
+  const token = localStorage.getItem('token');
+  if (!token) return {};
+  return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+let currentDemandType = 'MLA';
+
+function setDemandTypeButtonState() {
+  document.querySelectorAll('.demand-filter-btn').forEach(btn => {
+    btn.style.outline = btn.dataset.demandType === currentDemandType ? '3px solid #0f8e8e' : 'none';
+  });
+}
+
+function renderDemandApplications(items) {
+  const demandListEl = document.getElementById('demandList');
+  if (!Array.isArray(items) || items.length === 0) {
+    demandListEl.innerHTML = `<p class="info">${currentDemandType} category मध्ये अर्ज उपलब्ध नाहीत.</p>`;
+    return;
+  }
+
+  demandListEl.innerHTML = items.map(x => `
+    <div class="request-card">
+      <p><strong>${x.applicationNumber}</strong> | ${x.currentStatus}</p>
+      <p><strong>Applicant Type:</strong> ${x.applicantType}</p>
+      <p><strong>Applicant Name:</strong> ${x.applicantName}</p>
+      <p><strong>Mobile:</strong> ${x.mobileNumber}</p>
+      <p><strong>Ward:</strong> ${x.wardNumber ?? '-'}</p>
+      ${x.assemblyConstituency ? `<p><strong>Assembly Constituency:</strong> ${x.assemblyConstituency}</p>` : ''}
+      ${x.letterReferenceNumber ? `<p><strong>Letter Ref:</strong> ${x.letterReferenceNumber}</p>` : ''}
+      ${x.letterDate ? `<p><strong>Letter Date:</strong> ${new Date(x.letterDate).toLocaleDateString()}</p>` : ''}
+      <p><strong>Lights Requested:</strong> ${x.numberOfLightsRequested}</p>
+      <p><strong>Address:</strong> ${x.fullAddress}</p>
+      <p><strong>Location / Landmark:</strong> ${x.locationDetails}</p>
+      <p><strong>Description:</strong> ${x.descriptionOfRequest}</p>
+      <p><strong>Submitted:</strong> ${new Date(x.createdAtUtc).toLocaleString()}</p>
+      ${x.letterFileName ? `<p><strong>Letter File:</strong> ${x.letterFileName}</p>` : ''}
+    </div>
+  `).join('');
+}
+
+async function loadDemandSummary() {
+  const res = await fetch('/api/internal/demand-applications/summary', { headers: authHeaders() });
+  if (!res.ok) {
+    document.getElementById('countMla').textContent = '0';
+    document.getElementById('countCorporator').textContent = '0';
+    document.getElementById('countCitizen').textContent = '0';
+    return;
+  }
+  const data = await res.json();
+  document.getElementById('countMla').textContent = data.mla ?? data.MLA ?? 0;
+  document.getElementById('countCorporator').textContent = data.corporator ?? data.Corporator ?? 0;
+  document.getElementById('countCitizen').textContent = data.citizen ?? data.Citizen ?? 0;
+}
+
+async function loadDemandApplications() {
+  const listEl = document.getElementById('demandList');
+  const res = await fetch(`/api/internal/demand-applications?applicantType=${encodeURIComponent(currentDemandType)}`, { headers: authHeaders() });
+  if (!res.ok) {
+    listEl.innerHTML = '<p class="warn">Demand applications लोड झाले नाहीत.</p>';
+    return;
+  }
+  const data = await res.json();
+  renderDemandApplications(data);
+}
+
+async function loadDemandDashboard() {
+  await loadDemandSummary();
+  setDemandTypeButtonState();
+  await loadDemandApplications();
+}
+
+function renderRequestCard(x) {
+  const requestsEl = document.getElementById('requests');
+  const files = Array.isArray(x.files) ? x.files : [];
+  const history = Array.isArray(x.history) ? x.history : [];
+
+  const filesHtml = files.length
+    ? files.map(f => `
+      <div class="file-row">
+        <span>${f.fileType} | ${f.fileName} | ${f.uploadedByRole} | ${new Date(f.uploadedAtUtc).toLocaleString()}</span>
+        <button type="button" onclick="downloadRequestFile(${f.id}, '${String(f.fileName || '').replace(/'/g, "\\'")}')">Download</button>
+      </div>
+    `).join('')
+    : '<p>अपलोड केलेली कागदपत्रे नाहीत.</p>';
+
+  const historyHtml = history.length
+    ? history.map(h => `<li>${new Date(h.createdAtUtc).toLocaleString()} | ${h.actionByRole} | ${h.status}${h.remarks ? ` | ${h.remarks}` : ''}</li>`).join('')
+    : '<li>इतिहास उपलब्ध नाही.</li>';
+
+  requestsEl.innerHTML = `
+    <div class="request-card">
+      <p><strong>${x.applicationNumber}</strong> | ${x.currentStatus}</p>
+      <p><strong>अर्जदार:</strong> ${x.citizenName}</p>
+      <p><strong>मोबाईल:</strong> ${x.citizenMobile}</p>
+      <p><strong>वॉर्ड:</strong> ${x.ward}</p>
+      <p><strong>पत्ता:</strong> ${x.address}</p>
+      <p><strong>मागणी तपशील:</strong> ${x.description}</p>
+      <p>अंदाज: ${x.estimatedAmount ?? 'सेट नाही'}</p>
+      <input id="remarks-${x.id}" placeholder="शेरा" />
+      <div class="action-row">
+        <button type="button" onclick="submitDecision(${x.id}, 'ACCEPT')">Accept</button>
+        <button type="button" onclick="submitDecision(${x.id}, 'REJECT')">Reject</button>
+        <button type="button" onclick="submitDecision(${x.id}, 'HOLD')">Hold</button>
+      </div>
+
+      <div class="upload-grid">
+        <input id="doc-${x.id}" type="file" />
+        <button onclick="uploadDocument(${x.id})">Upload Document</button>
+        <input id="geo-${x.id}" type="file" />
+        <input id="lat-${x.id}" placeholder="Latitude" />
+        <input id="lng-${x.id}" placeholder="Longitude" />
+        <button onclick="uploadGeoPhoto(${x.id})">Upload Geo Photo</button>
+      </div>
+
+      <hr />
+      <p><strong>अपलोड कागदपत्रे:</strong></p>
+      <div>${filesHtml}</div>
+
+      <hr />
+      <p><strong>स्थिती इतिहास:</strong></p>
+      <ul>${historyHtml}</ul>
+    </div>
+  `;
+}
+
+async function loadByApplicationId() {
+  const appNo = (document.getElementById('engineerAppNo').value || '').trim().toUpperCase();
+  const requestsEl = document.getElementById('requests');
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    requestsEl.innerHTML = '<p class="warn">कृपया आधी अंतर्गत लॉगिन करा.</p>';
+    return;
+  }
+
+  if (!appNo) {
+    requestsEl.innerHTML = '<p class="warn">कृपया Application Number भरा.</p>';
+    return;
+  }
+
+  const res = await fetch(`/api/internal/requests/by-application/${appNo}`, { headers: authHeaders() });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+      document.getElementById('roleLabel').textContent = 'Not logged in';
+      panes.forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
+      document.getElementById('tab-login').classList.remove('hidden');
+      document.getElementById('loginInfo').textContent = 'सेशन संपले आहे. कृपया पुन्हा लॉगिन करा.';
+      return;
+    }
+    requestsEl.innerHTML = '<p class="warn">Application सापडला नाही किंवा access नाही.</p>';
+    return;
+  }
+
+  const data = await res.json();
+  renderRequestCard(data);
+}
+
+async function submitDecision(id, explicitDecision) {
+  const decision = explicitDecision || document.getElementById(`decision-${id}`)?.value;
+  const remarks = document.getElementById(`remarks-${id}`).value;
+  if (!decision) {
+    alert('Decision निवडा.');
+    return;
+  }
+  const res = await fetch(`/api/internal/requests/${id}/decision`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ decision, remarks })
+  });
+
+  if (!res.ok) {
+    let msg = 'Decision update failed for this stage/role.';
+    try {
+      const err = await res.json();
+      if (err?.message) msg = err.message;
+    } catch {}
+    alert(msg);
+  }
+  await loadByApplicationId();
+}
+
+async function uploadDocument(id) {
+  const fileInput = document.getElementById(`doc-${id}`);
+  const file = fileInput.files?.[0];
+  if (!file) return;
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('fileType', 'EngineerDocument');
+
+  const res = await fetch(`/api/internal/requests/${id}/files`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+    body: fd
+  });
+  if (!res.ok) alert('Document upload failed.');
+  await loadByApplicationId();
+}
+
+async function uploadGeoPhoto(id) {
+  const fileInput = document.getElementById(`geo-${id}`);
+  const file = fileInput.files?.[0];
+  if (!file) return;
+
+  const lat = document.getElementById(`lat-${id}`).value || '';
+  const lng = document.getElementById(`lng-${id}`).value || '';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('fileType', 'GeoTaggedPhoto');
+  fd.append('latitude', lat);
+  fd.append('longitude', lng);
+  fd.append('capturedAtUtc', new Date().toISOString());
+
+  const res = await fetch(`/api/internal/requests/${id}/files`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+    body: fd
+  });
+  if (!res.ok) alert('Geo photo upload failed.');
+  await loadByApplicationId();
+}
+
+async function downloadRequestFile(fileId, fileName) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('कृपया आधी लॉगिन करा.');
+    return;
+  }
+
+  const res = await fetch(`/api/internal/request-files/${fileId}/download`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    alert('File download failed.');
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || `file-${fileId}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('findByIdBtn').addEventListener('click', loadByApplicationId);
+document.querySelectorAll('.demand-filter-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    currentDemandType = btn.dataset.demandType;
+    setDemandTypeButtonState();
+    await loadDemandApplications();
+  });
+});
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('role');
+  localStorage.removeItem('name');
+  document.getElementById('requests').innerHTML = '';
+  document.getElementById('demandList').innerHTML = '';
+  document.getElementById('roleLabel').textContent = '';
+  document.getElementById('loginInfo').textContent = 'तुम्ही लॉगआउट झाला आहात.';
+  panes.forEach(x => document.getElementById(`tab-${x}`).classList.add('hidden'));
+  document.getElementById('tab-login').classList.remove('hidden');
+  document.getElementById('password').value = '';
+});
+
+if (localStorage.getItem('token')) {
+  const savedRole = localStorage.getItem('role') || '';
+  if (!savedRole) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('name');
+    document.getElementById('roleLabel').textContent = 'Not logged in';
+  } else {
+    document.getElementById('roleLabel').textContent = savedRole;
+  }
+} else {
+  document.getElementById('roleLabel').textContent = 'Not logged in';
+}
+
+setDemandTypeButtonState();
+
+window.submitDecision = submitDecision;
+window.uploadDocument = uploadDocument;
+window.uploadGeoPhoto = uploadGeoPhoto;
+window.downloadRequestFile = downloadRequestFile;
+</script>
